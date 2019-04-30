@@ -21,19 +21,19 @@
 	Linux:	
 		Ubuntu Linux 16.04 with "qemu-system-arm","gcc-arm-none-eabi","gdb-arm-none-eabi"
 		installed(can install by "apt")
-
+	
 	Mac OSX(with brew installed):	
 		brew tap PX4/homebrew-px4
 		brew install gcc-arm-none-eabi-49
 		brew install qemu
 		(set the right PATH environment after installed)
-	
+
 .make and run
 	
 	"make run": run EwokOS; 
 	  "qemu-system-arm -kernel build/EwokOS.bin -serial mon:stdio -sd ../rootfs/rootfs.ext2"
 	  boot kernel file and mount SD card.
-
+	
 	"make debug": run EwokOS at debug server-mode;
 	"make gdb": debug EwokOS (debug client-mode);
 
@@ -44,7 +44,7 @@
 
 .Source code read-guide
 
-	kernel/arm/boot.S
+	kernel/asm/boot.S
 	kernel/src/mm/kalloc.c
 	kernel/src/mm/mmu.c
 	kernel/src/mm/trunkmalloc.c
@@ -54,19 +54,19 @@
 	kernel/src/syscalls.c
 	kernel/src/mm/shm.c
 	kernel/src/kipc.c
-
+	
 	rootfs/lib/src/stdlib.c
 	rootfs/lib/src/unistd.c
 	rootfs/lib/src/ipc.c
 	rootfs/lib/src/shm.c
-
+	
 	rootfs/sbin/init/init.c
 	rootfs/sbin/vfsd/vfsd.c
 	rootfs/dev/initfs/initfs.c
 	rootfs/dev/fbd/fbd.c
 	rootfs/dev/ttyd/ttyd.c
 	rootfs/sbin/shell/shell.c
-
+	
 	Tips: Don't fall in love with assembly too much;).
 
 . Kernel init memory map
