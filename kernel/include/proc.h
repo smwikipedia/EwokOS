@@ -29,6 +29,8 @@ enum {
 	UNUSED = 0,
 	CREATED,
 	SLEEPING,
+	WAIT,
+	BLOCK,
 	READY,
 	RUNNING,
 	TERMINATED
@@ -47,8 +49,8 @@ enum {
 
 #define FILE_MAX 32
 typedef struct {
-	k_file_t* kf;	
-	uint32_t flags;
+	kfile_t* kf;	
+	uint32_t wr;
 	uint32_t seek;
 } proc_file_t;
 
@@ -122,9 +124,10 @@ void proc_shrink_mem(void *proc, int32_t page_num);
 process_t* proc_get(int32_t pid);
 void proc_sleep_msec(uint32_t msec);
 void proc_sleep_check(process_t* proc);
-void proc_sleep(uint32_t by);
-void proc_wake(uint32_t by);
-void proc_wake_pid(int32_t pid);
+void proc_block(uint32_t by);
+void proc_unblock(uint32_t by);
+int32_t proc_wait(int32_t pid);
+void proc_wake(int32_t pid);
 
 process_t* kfork(uint32_t type);
 void proc_exit(process_t* proc);

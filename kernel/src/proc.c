@@ -202,9 +202,9 @@ inline int32_t *get_current_context(void) {
 static void proc_free_space(process_t *proc) {
 	/*free file info*/
 	for(uint32_t i=0; i<FILE_MAX; i++) {
-		k_file_t* kf = proc->space->files[i].kf;
+		kfile_t* kf = proc->space->files[i].kf;
 		if(kf != NULL) {
-			kf_unref(kf, proc->space->files[i].flags); //unref the kernel file table.
+			kf_unref(kf, proc->space->files[i].wr); //unref the kernel file table.
 		}
 	}
 
@@ -390,12 +390,12 @@ int32_t proc_set_env(const char* name, const char* value) {
 static inline void proc_clone_files(process_t* child, process_t* parent) {
 	int32_t i=0;
 	for(i=0; i<FILE_MAX; i++) {
-		k_file_t* kf = parent->space->files[i].kf;
+		kfile_t* kf = parent->space->files[i].kf;
 		if(kf != NULL) {
 			child->space->files[i].kf = kf;
-			child->space->files[i].flags = parent->space->files[i].flags;
+			child->space->files[i].wr = parent->space->files[i].wr;
 			child->space->files[i].seek = parent->space->files[i].seek;
-			kf_ref(kf, child->space->files[i].flags); //ref the kernel file table.
+			kf_ref(kf, child->space->files[i].wr); //ref the kernel file table.
 		}
 	}
 }
@@ -517,7 +517,7 @@ static void proc_terminate(process_t* proc) {
 		if(p->father_pid == proc->pid && p->entry == NULL) { //terminate forked children, skip reloaded ones
 			proc_terminate(p);
 		}
-		else if (p->state == SLEEPING &&
+		else if (p->state == WAIT &&
 				p->wait_pid == proc->pid) {
 			p->wait_pid = -1;
 			p->state = READY;
@@ -542,13 +542,13 @@ void proc_exit(process_t* proc) {
 }
 
 void proc_sleep_msec(uint32_t msec) {
-	if(msec == 0)
-		return;
-	CRIT_IN(_p_proc_lock)
-	_current_proc->state = SLEEPING;
-	_current_proc->sleep_counter.count_msec = msec;
-	cpu_tick(&_current_proc->sleep_counter.from_sec, &_current_proc->sleep_counter.from_msec);
-	CRIT_OUT(_p_proc_lock)
+	if(msec > 0)  {
+		CRIT_IN(_p_proc_lock)
+			_current_proc->state = SLEEPING;
+		_current_proc->sleep_counter.count_msec = msec;
+		cpu_tick(&_current_proc->sleep_counter.from_sec, &_current_proc->sleep_counter.from_msec);
+		CRIT_OUT(_p_proc_lock)
+	}
 	schedule();
 }
 
@@ -570,32 +570,45 @@ void proc_sleep_check(process_t* proc) {
 	CRIT_OUT(_p_proc_lock)
 }
 
-void proc_sleep(uint32_t by) {
+void proc_block(uint32_t by) {
 	CRIT_IN(_p_proc_lock)
-	if(_current_proc->state == SLEEPING) { //already slept
+	if(_current_proc->state == BLOCK) { //already blocked.
 		CRIT_OUT(_p_proc_lock)
 		return;
 	}
-	_current_proc->state = SLEEPING;
+	_current_proc->state = BLOCK;
 	_current_proc->slept_by = by;
 	CRIT_OUT(_p_proc_lock)
 }
 
-void proc_wake_pid(int32_t pid) {
+int32_t proc_wait(int32_t pid) {
+	CRIT_IN(_p_proc_lock)
+	process_t *proc = proc_get(pid);
+	if(proc != NULL && proc->state != UNUSED) {
+		_current_proc->wait_pid = pid;
+		_current_proc->state = WAIT;
+		CRIT_OUT(_p_proc_lock)
+		schedule();
+	}
+	return -1;
+}
+
+void proc_wake(int32_t pid) { //wake up the proc at block or wait status.
 	CRIT_IN(_p_proc_lock)
 	process_t* proc = proc_get(pid);
-	if(proc != NULL && proc->state == SLEEPING) {
+	if(proc != NULL && (proc->state == WAIT || proc->state == BLOCK)) {
 		proc->state = READY;
 		proc->slept_by = 0;
+		proc->wait_pid = -1;
 	}
 	CRIT_OUT(_p_proc_lock)
 }
 
-void proc_wake(uint32_t by) {
+void proc_unblock(uint32_t by) {
 	CRIT_IN(_p_proc_lock)
 	process_t *p = _current_proc->next;
 	while(p != _current_proc) {
-		if (p->state == SLEEPING && p->slept_by == by) {
+		if (p->state == BLOCK && p->slept_by == by) {
 			p->slept_by = 0;
 			p->state = READY;
 		}

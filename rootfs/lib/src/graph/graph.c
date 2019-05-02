@@ -65,11 +65,23 @@ inline void pixel(graph_t* g, int32_t x, int32_t y, uint32_t color) {
 }
 
 void clear(graph_t* g, uint32_t color) {
+	uint8_t byte = color & 0xff;	
+	if(((color >> 8)&0xff) == byte && ((color >> 16)&0xff) == byte) {
+		memset(g->buffer, byte, g->w*g->h*4);
+		return 0;
+	}
+
+	if(g->w == 0 || g->w == 0)
+		return;
 	uint32_t i = 0;
-	uint32_t s = g->h * g->w;
-	while(i<s) {
+	uint32_t sz = g->w * 4;
+	while(i<g->w) {
 		g->buffer[i] = color;
 		++i;
+	}
+	char* p = (char*)g->buffer;
+	for(i=1; i<g->h; ++i) {
+		memcpy(p+(i*sz), p, sz);
 	}
 }
 

@@ -12,7 +12,7 @@ int ipc_open(int pid, uint32_t buf_size) {
 
 void ipc_close(int id) {
 	while(syscall1(SYSCALL_IPC_CLOSE, id) != 0)
-		yield();
+		sleep(0);
 }
 
 static void ipc_ring(int id) {
@@ -24,13 +24,12 @@ static int ipc_peer(int id) {
 }
 
 static int ipc_write(int id, void* data, uint32_t size) {
-	//return syscall3(SYSCALL_IPC_WRITE, id, (int)data, size);
 	int i;
 	while(true) {
 		i = syscall3(SYSCALL_IPC_WRITE, id, (int)data, size);
 		if(i >= 0)
 			break;
-		yield();
+		sleep(0);
 	}
 	return i;
 }
@@ -38,14 +37,12 @@ static int ipc_write(int id, void* data, uint32_t size) {
 static int ipc_read(int id, void* data, uint32_t size) {
 	if(data == NULL || size == 0)
 		return 0;
-
-	//return syscall3(SYSCALL_IPC_READ, id, (int)data, size);
 	int i;
 	while(true) {
 		i = syscall3(SYSCALL_IPC_READ, id, (int)data, size);
 		if(i >= 0)
 			break;
-		yield();
+		sleep(0);
 	}
 	return i;
 }
@@ -131,7 +128,7 @@ package_t* ipc_roll() {
 		id = syscall0(SYSCALL_IPC_READY);
 		if(id >= 0)
 			break;
-		yield();
+		sleep(0);
 	}
 	
 	package_t* pkg = ipc_recv(id);

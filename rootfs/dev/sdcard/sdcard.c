@@ -20,7 +20,7 @@ static int32_t read_block(int32_t block, char* buf) {
 		res = syscall2(SYSCALL_DEV_BLOCK_READ_DONE, _typeid, (int32_t)buf);
 		if(res == 0)
 			break;
-		yield();
+		sleep(0);
 	}
 	return 0;
 }
@@ -145,7 +145,7 @@ int32_t sdcard_open(uint32_t node, int32_t flags) {
 	(void)flags;
 
 	fs_info_t info;
-	if(vfs_node_info(node, &info) != 0 || info.data == NULL)
+	if(fs_ninfo(node, &info) != 0 || info.data == NULL)
 		return -1;
 	if(info.type == FS_TYPE_DIR)
 		return 0;
@@ -169,13 +169,14 @@ int32_t sdcard_open(uint32_t node, int32_t flags) {
 
 int32_t sdcard_close(uint32_t node) {
 	fs_info_t info;
-	if(vfs_node_info(node, &info) != 0 || info.data == NULL)
+	if(fs_ninfo(node, &info) != 0 || info.data == NULL)
 		return -1;
 	if(info.type == FS_TYPE_DIR)
 		return 0;
+	if(syscall2(SYSCALL_PFILE_GET_REF, node, 2) > 1) //1 ref left for this closing fd
+		return 0;
 
 	ext2_node_data_t* data = (ext2_node_data_t*)info.data;
-
 	if(data->data != NULL) {
 		free(data->data);
 		data->data = NULL;
@@ -185,7 +186,7 @@ int32_t sdcard_close(uint32_t node) {
 
 int32_t sdcard_read(uint32_t node, void* buf, uint32_t size, int32_t seek) {
 	fs_info_t info;
-	if(vfs_node_info(node, &info) != 0 || info.data == NULL)
+	if(fs_ninfo(node, &info) != 0 || info.data == NULL)
 		return -1;
 	ext2_node_data_t* data = (ext2_node_data_t*)info.data;
 
